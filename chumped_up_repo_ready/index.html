@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#05070b">
+  <title>CHUMPED UP</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="wrap">
+    <img class="banner" src="assets/chump-banner.jpg" alt="CHUMP banner">
+
+    <header class="hero">
+      <div>
+        <h1><span>CHUMPED</span> UP</h1>
+        <p>Upload an image. Add CHUMP parts. Post it or use it as your X PFP.</p>
+      </div>
+      <div class="output-switch" aria-label="Output mode">
+        <button id="postMode" class="mode active" type="button">CHUMPIFY &amp; POST</button>
+        <button id="pfpMode" class="mode" type="button">USE AS X PFP</button>
+      </div>
+    </header>
+
+    <section class="app-grid">
+      <section class="stage-panel">
+        <div class="canvas-shell">
+          <canvas id="editor" width="1080" height="1080" aria-label="CHUMPED UP image editor"></canvas>
+          <div id="emptyState" class="empty-state">
+            <div><strong>Add an image</strong><span>Then CHUMP it up.</span></div>
+          </div>
+        </div>
+        <div class="stage-note" id="stageNote">Square post preview • 1080 × 1080 export</div>
+      </section>
+
+      <aside class="controls-panel">
+        <section class="control-section first">
+          <div class="section-title">1 — IMAGE</div>
+          <label class="file-button">ADD IMAGE
+            <input id="fileInput" type="file" accept="image/png,image/jpeg,image/webp">
+          </label>
+          <div class="row gap-top">
+            <button id="selectPhoto" class="secondary" type="button" disabled>SELECT PHOTO</button>
+            <button id="lockPhoto" class="secondary" type="button" disabled>LOCK PHOTO</button>
+          </div>
+          <label for="photoScale">Photo size <span id="photoScaleValue" class="value">100%</span></label>
+          <input id="photoScale" type="range" min="20" max="250" value="100" disabled>
+          <p class="hint">Select PHOTO, then drag it on the image. Lock it before placing CHUMP parts.</p>
+        </section>
+
+        <section class="control-section">
+          <div class="section-title">2 — ADD CHUMP</div>
+          <div class="add-grid">
+            <button id="addBeak" class="gold" type="button" disabled>+ BEAK</button>
+            <button id="addTie" class="red" type="button" disabled>+ TIE</button>
+            <button id="addFeather" class="green" type="button" disabled>+ FEATHER</button>
+            <button id="addBadge" class="blue" type="button" disabled>+1 BADGE</button>
+          </div>
+          <p class="hint">Add several beaks, ties, or feathers for group photos. One +1 badge per image.</p>
+        </section>
+
+        <section class="control-section compact">
+          <div class="section-title line-title"><span>HISTORY</span><span class="mini-actions"><button id="undo" class="mini" type="button" disabled>UNDO</button><button id="redo" class="mini" type="button" disabled>REDO</button></span></div>
+        </section>
+
+        <section class="control-section">
+          <div class="section-title">LAYERS</div>
+          <div id="layerList" class="layer-list"></div>
+        </section>
+
+        <section class="control-section">
+          <div class="section-title">SELECTED OBJECT</div>
+          <div id="stylePanel" class="style-panel" hidden>
+            <label>Style</label>
+            <div id="styleButtons" class="style-buttons"></div>
+          </div>
+
+          <label for="objectScale">Size <span id="objectScaleValue" class="value">—</span></label>
+          <input id="objectScale" type="range" min="10" max="300" value="100" disabled>
+
+          <div id="lengthPanel" hidden>
+            <label for="objectLength">Tie length <span id="objectLengthValue" class="value">100%</span></label>
+            <input id="objectLength" type="range" min="50" max="220" value="100" disabled>
+          </div>
+
+          <label for="objectRotate">Rotate <span id="objectRotateValue" class="value">—</span></label>
+          <input id="objectRotate" type="range" min="-180" max="180" value="0" disabled>
+
+          <label for="objectYaw">Turn left / right <span id="objectYawValue" class="value">—</span></label>
+          <input id="objectYaw" type="range" min="-70" max="70" value="0" disabled>
+
+          <label for="objectPitch">Tilt up / down <span id="objectPitchValue" class="value">—</span></label>
+          <input id="objectPitch" type="range" min="-70" max="70" value="0" disabled>
+
+          <label class="check-row"><input id="objectFlip" type="checkbox" disabled><span>Flip horizontally</span></label>
+
+          <div class="object-tools">
+            <button id="duplicate" class="secondary" type="button" disabled>DUPLICATE</button>
+            <button id="moveForward" class="secondary" type="button" disabled>FORWARD</button>
+            <button id="moveBack" class="secondary" type="button" disabled>BACK</button>
+            <button id="resetObject" class="secondary" type="button" disabled>RESET</button>
+          </div>
+          <button id="deleteObject" class="danger full" type="button" disabled>DELETE OBJECT</button>
+        </section>
+
+        <section class="control-section">
+          <div class="section-title">3 — FINISH</div>
+          <button id="download" class="download" type="button" disabled>DOWNLOAD 1080 × 1080</button>
+          <button id="startOver" class="secondary full gap-top" type="button" disabled>START OVER</button>
+          <p id="outputNote" class="hint">Optimized for an X post or reply.</p>
+          <div id="status" class="status" aria-live="polite">Ready.</div>
+          <div class="privacy"><span></span>Your image never leaves your device.</div>
+        </section>
+      </aside>
+    </section>
+
+    <footer><strong>$CHUMP on Robinhood Chain</strong> • cc21b.meme</footer>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>
