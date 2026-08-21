@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#05070b">
   <title>CHUMPED UP</title>
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=20260820warp2">
 </head>
 <body>
   <main class="wrap">
@@ -33,7 +33,7 @@
           </div>
         </div>
         <div class="stage-note" id="stageNote">Square post preview • 1080 × 1080 export</div>
-        <div class="mobile-help">Tap an object to select • pinch/twist to size &amp; rotate • use the outer border to scroll</div>
+        <div class="mobile-help">Tap to select • pinch/twist to size &amp; rotate • 3D WARP lets you drag beak corners</div>
       </section>
 
       <aside class="controls-panel">
@@ -106,11 +106,44 @@
             </div>
           </div>
 
-          <label for="objectYaw">Turn left / right <span id="objectYawValue" class="value">—</span></label>
+          <label for="objectYaw">3D turn left / right <span id="objectYawValue" class="value">—</span></label>
           <input id="objectYaw" type="range" min="-70" max="70" value="0" disabled>
 
-          <label for="objectPitch">Tilt up / down <span id="objectPitchValue" class="value">—</span></label>
+          <label for="objectPitch">3D tilt up / down <span id="objectPitchValue" class="value">—</span></label>
           <input id="objectPitch" type="range" min="-70" max="70" value="0" disabled>
+
+          <div id="warpPanel" class="warp-panel" hidden>
+            <div class="warp-heading">
+              <div>
+                <strong>3D PERSPECTIVE WARP</strong>
+                <span>Drag beak corners directly. Pick a corner or side to move it forward or back.</span>
+              </div>
+              <button id="warpMode" class="warp-toggle" type="button" disabled>EDIT 3D WARP</button>
+            </div>
+
+            <div id="warpTargetButtons" class="warp-target-grid" aria-label="Choose warp corner or side">
+              <button type="button" data-warp-target="tl">TL</button>
+              <button type="button" data-warp-target="top">TOP</button>
+              <button type="button" data-warp-target="tr">TR</button>
+              <button type="button" data-warp-target="left">LEFT</button>
+              <button type="button" data-warp-target="whole" class="active">WHOLE</button>
+              <button type="button" data-warp-target="right">RIGHT</button>
+              <button type="button" data-warp-target="bl">BL</button>
+              <button type="button" data-warp-target="bottom">BOTTOM</button>
+              <button type="button" data-warp-target="br">BR</button>
+            </div>
+
+            <div class="adjust-block warp-depth-block">
+              <label for="warpDepth">Depth — forward / back <span id="warpDepthValue" class="value">0</span></label>
+              <div class="depth-step-row">
+                <button id="warpForward" class="depth-btn" type="button" disabled>FORWARD</button>
+                <input id="warpDepth" type="range" min="-100" max="100" value="0" disabled>
+                <button id="warpBack" class="depth-btn" type="button" disabled>BACK</button>
+              </div>
+            </div>
+            <button id="resetWarp" class="secondary full reset-warp" type="button" disabled>RESET 3D WARP</button>
+            <p class="hint">Negative depth comes toward you. Positive depth moves away. Side buttons move both corners together.</p>
+          </div>
 
           <div class="nudge-wrap">
             <span class="nudge-label">Position</span>
@@ -140,7 +173,13 @@
         </section>
 
         <section class="control-section compact">
-          <div class="section-title line-title"><span>HISTORY</span><span class="mini-actions"><button id="undo" class="mini" type="button" disabled>UNDO</button><button id="redo" class="mini" type="button" disabled>REDO</button></span></div>
+          <div class="section-title line-title">
+            <span>HISTORY</span>
+            <span class="mini-actions">
+              <button id="undo" class="mini" type="button" disabled>UNDO</button>
+              <button id="redo" class="mini" type="button" disabled>REDO</button>
+            </span>
+          </div>
         </section>
 
         <section class="control-section finish-section">
@@ -157,6 +196,6 @@
 
     <footer><strong>$CHUMP on Robinhood Chain</strong> • cc21b.meme</footer>
   </main>
-  <script src="app.js"></script>
+  <script src="app.js?v=20260820warp2"></script>
 </body>
 </html>
