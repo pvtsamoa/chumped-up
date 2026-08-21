@@ -153,3 +153,46 @@ footer strong{color:var(--lime)}
   .canvas-shell{width:min(100%,72vh)}
   .controls-panel{max-height:82vh}
 }
+
+/* Mobile safe-scroll rail: the reserved right padding contains no interactive controls,
+   so vertical swipes there always scroll the controls panel instead of changing a setting. */
+@media (pointer:coarse) and (max-width:1000px){
+  .controls-panel{
+    position:relative;
+    padding-right:58px;
+    scrollbar-width:none;
+    -webkit-overflow-scrolling:touch;
+    box-shadow:inset -49px 0 0 #07111c,inset -50px 0 0 #365f7e,0 20px 50px rgba(0,0,0,.28);
+  }
+  .controls-panel::-webkit-scrollbar{width:0;height:0}
+  .controls-panel::before{
+    content:'SCROLL  ↕';
+    position:sticky;
+    top:8px;
+    float:right;
+    z-index:3;
+    width:42px;
+    min-height:112px;
+    margin-right:-51px;
+    margin-bottom:-112px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    writing-mode:vertical-rl;
+    text-orientation:mixed;
+    letter-spacing:.12em;
+    font-size:9px;
+    font-weight:950;
+    color:#b8cee0;
+    background:linear-gradient(180deg,#102235,#08131f);
+    border:1px solid #365f7e;
+    border-radius:10px;
+    pointer-events:none;
+    user-select:none;
+  }
+}
+
+@media (pointer:coarse) and (max-width:520px){
+  .controls-panel{padding-right:56px}
+  .controls-panel::before{width:40px;margin-right:-49px}
+}
