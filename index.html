@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#05070b">
   <title>CHUMPED UP</title>
   <link rel="stylesheet" href="styles.css">
@@ -24,13 +24,16 @@
 
     <section class="app-grid">
       <section class="stage-panel">
-        <div class="canvas-shell">
-          <canvas id="editor" width="1080" height="1080" aria-label="CHUMPED UP image editor"></canvas>
-          <div id="emptyState" class="empty-state">
-            <div><strong>Add an image</strong><span>Then CHUMP it up.</span></div>
+        <div class="canvas-shell" aria-label="Safe scroll border around editor">
+          <div class="canvas-zone">
+            <canvas id="editor" width="1080" height="1080" aria-label="CHUMPED UP image editor"></canvas>
+            <div id="emptyState" class="empty-state">
+              <div><strong>Add an image</strong><span>Then CHUMP it up.</span></div>
+            </div>
           </div>
         </div>
         <div class="stage-note" id="stageNote">Square post preview • 1080 × 1080 export</div>
+        <div class="mobile-help">Tap an object to select • pinch/twist to size &amp; rotate • use the outer border to scroll</div>
       </section>
 
       <aside class="controls-panel">
@@ -43,8 +46,14 @@
             <button id="selectPhoto" class="secondary" type="button" disabled>SELECT PHOTO</button>
             <button id="lockPhoto" class="secondary" type="button" disabled>LOCK PHOTO</button>
           </div>
-          <label for="photoScale">Photo size <span id="photoScaleValue" class="value">100%</span></label>
-          <input id="photoScale" type="range" min="20" max="250" value="100" disabled>
+          <div class="adjust-block">
+            <label for="photoScale">Photo size <span id="photoScaleValue" class="value">100%</span></label>
+            <div class="range-step-row">
+              <button id="photoScaleMinus" class="step-btn" type="button" disabled aria-label="Decrease photo size">−</button>
+              <input id="photoScale" type="range" min="20" max="250" value="100" disabled>
+              <button id="photoScalePlus" class="step-btn" type="button" disabled aria-label="Increase photo size">+</button>
+            </div>
+          </div>
           <p class="hint">Select PHOTO, then drag it on the image. Lock it before placing CHUMP parts.</p>
         </section>
 
@@ -59,38 +68,60 @@
           <p class="hint">Add several beaks, ties, or feathers for group photos. One +1 badge per image.</p>
         </section>
 
-        <section class="control-section compact">
-          <div class="section-title line-title"><span>HISTORY</span><span class="mini-actions"><button id="undo" class="mini" type="button" disabled>UNDO</button><button id="redo" class="mini" type="button" disabled>REDO</button></span></div>
-        </section>
+        <section class="control-section selected-section">
+          <div class="section-title line-title">
+            <span>SELECTED OBJECT</span>
+            <button id="lockObject" class="mini lock-mini" type="button" disabled>LOCK</button>
+          </div>
 
-        <section class="control-section">
-          <div class="section-title">LAYERS</div>
-          <div id="layerList" class="layer-list"></div>
-        </section>
-
-        <section class="control-section">
-          <div class="section-title">SELECTED OBJECT</div>
           <div id="stylePanel" class="style-panel" hidden>
             <label>Style</label>
             <div id="styleButtons" class="style-buttons"></div>
           </div>
 
-          <label for="objectScale">Size <span id="objectScaleValue" class="value">—</span></label>
-          <input id="objectScale" type="range" min="10" max="300" value="100" disabled>
-
-          <div id="lengthPanel" hidden>
-            <label for="objectLength">Tie length <span id="objectLengthValue" class="value">100%</span></label>
-            <input id="objectLength" type="range" min="50" max="220" value="100" disabled>
+          <div class="adjust-block">
+            <label for="objectScale">Size <span id="objectScaleValue" class="value">—</span></label>
+            <div class="range-step-row">
+              <button id="objectScaleMinus" class="step-btn" type="button" disabled aria-label="Decrease object size">−</button>
+              <input id="objectScale" type="range" min="10" max="300" value="100" disabled>
+              <button id="objectScalePlus" class="step-btn" type="button" disabled aria-label="Increase object size">+</button>
+            </div>
           </div>
 
-          <label for="objectRotate">Rotate <span id="objectRotateValue" class="value">—</span></label>
-          <input id="objectRotate" type="range" min="-180" max="180" value="0" disabled>
+          <div id="lengthPanel" class="adjust-block" hidden>
+            <label for="objectLength">Tie length <span id="objectLengthValue" class="value">100%</span></label>
+            <div class="range-step-row">
+              <button id="objectLengthMinus" class="step-btn" type="button" disabled aria-label="Shorten tie">−</button>
+              <input id="objectLength" type="range" min="50" max="220" value="100" disabled>
+              <button id="objectLengthPlus" class="step-btn" type="button" disabled aria-label="Lengthen tie">+</button>
+            </div>
+          </div>
+
+          <div class="adjust-block">
+            <label for="objectRotate">Rotate <span id="objectRotateValue" class="value">—</span></label>
+            <div class="range-step-row">
+              <button id="objectRotateMinus" class="step-btn" type="button" disabled aria-label="Rotate left">−</button>
+              <input id="objectRotate" type="range" min="-180" max="180" value="0" disabled>
+              <button id="objectRotatePlus" class="step-btn" type="button" disabled aria-label="Rotate right">+</button>
+            </div>
+          </div>
 
           <label for="objectYaw">Turn left / right <span id="objectYawValue" class="value">—</span></label>
           <input id="objectYaw" type="range" min="-70" max="70" value="0" disabled>
 
           <label for="objectPitch">Tilt up / down <span id="objectPitchValue" class="value">—</span></label>
           <input id="objectPitch" type="range" min="-70" max="70" value="0" disabled>
+
+          <div class="nudge-wrap">
+            <span class="nudge-label">Position</span>
+            <div class="nudge-grid" aria-label="Fine position controls">
+              <span></span><button id="nudgeUp" class="nudge" type="button" disabled aria-label="Move up">↑</button><span></span>
+              <button id="nudgeLeft" class="nudge" type="button" disabled aria-label="Move left">←</button>
+              <button id="centerObject" class="nudge center" type="button" disabled>CENTER</button>
+              <button id="nudgeRight" class="nudge" type="button" disabled aria-label="Move right">→</button>
+              <span></span><button id="nudgeDown" class="nudge" type="button" disabled aria-label="Move down">↓</button><span></span>
+            </div>
+          </div>
 
           <label class="check-row"><input id="objectFlip" type="checkbox" disabled><span>Flip horizontally</span></label>
 
@@ -104,8 +135,18 @@
         </section>
 
         <section class="control-section">
+          <div class="section-title">LAYERS</div>
+          <div id="layerList" class="layer-list"></div>
+        </section>
+
+        <section class="control-section compact">
+          <div class="section-title line-title"><span>HISTORY</span><span class="mini-actions"><button id="undo" class="mini" type="button" disabled>UNDO</button><button id="redo" class="mini" type="button" disabled>REDO</button></span></div>
+        </section>
+
+        <section class="control-section finish-section">
           <div class="section-title">3 — FINISH</div>
-          <button id="download" class="download" type="button" disabled>DOWNLOAD 1080 × 1080</button>
+          <button id="previewFinal" class="secondary full" type="button" disabled>PREVIEW FINAL</button>
+          <button id="download" class="download gap-top" type="button" disabled>DOWNLOAD 1080 × 1080</button>
           <button id="startOver" class="secondary full gap-top" type="button" disabled>START OVER</button>
           <p id="outputNote" class="hint">Optimized for an X post or reply.</p>
           <div id="status" class="status" aria-live="polite">Ready.</div>
