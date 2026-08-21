@@ -19,8 +19,8 @@ const E={
 };
 
 const assetSources={
-  'beak-closed':'assets/beak-closed.png','beak-open':'assets/beak-open.png',
-  'beak-squawk':'assets/beak-squawk.png','beak-pursed':'assets/beak-pursed.png',
+  'beak-closed':'assets/beak-closed.png?v=20260820t','beak-open':'assets/beak-open.png?v=20260820t',
+  'beak-squawk':'assets/beak-squawk.png?v=20260820t','beak-pursed':'assets/beak-pursed.png?v=20260820t',
   'tie-straight':'assets/tie-straight.png','tie-flying':'assets/tie-flying.png',
   'feather-orange':'assets/feather-orange.png','feather-green':'assets/feather-green.png',
   badge:'assets/plus1-chump.png'
@@ -31,8 +31,21 @@ const baseSize={beak:355,tie:315,feather:235,badge:560};
 const clamp=(n,min,max)=>Math.max(min,Math.min(max,n));
 const angleDelta=(a,b)=>{let d=a-b;while(d>180)d-=360;while(d<-180)d+=360;return d;};
 
+function cleanBeakAsset(img){
+  const c=document.createElement('canvas');c.width=img.naturalWidth;c.height=img.naturalHeight;
+  const x=c.getContext('2d',{willReadFrequently:true});x.drawImage(img,0,0);
+  const data=x.getImageData(0,0,c.width,c.height),p=data.data;
+  for(let i=0;i<p.length;i+=4){
+    const a=p[i+3];if(a<=16){p[i+3]=0;continue;}
+    const r=p[i],g=p[i+1],b=p[i+2],hi=Math.max(r,g,b),lo=Math.min(r,g,b),sat=hi?(hi-lo)/hi:0;
+    p[i+3]=(sat>.10||hi<150)?255:0;
+  }
+  x.clearRect(0,0,c.width,c.height);x.putImageData(data,0,0);return c;
+}
 for(const [key,src] of Object.entries(assetSources)){
-  const img=new Image();img.decoding='async';img.onload=scheduleRender;img.src=src;assets[key]=img;
+  const img=new Image();img.decoding='async';assets[key]=img;
+  img.onload=()=>{assets[key]=key.startsWith('beak-')?cleanBeakAsset(img):img;scheduleRender();};
+  img.src=src;
 }
 
 let photo=null;
@@ -52,7 +65,9 @@ let gesture=null;
 const pointers=new Map();
 
 function status(text){E.status.textContent=text;}
-function imageReady(img){return img&&img.complete&&img.naturalWidth>0;}
+function mediaWidth(img){return img?(img.naturalWidth||img.width||0):0;}
+function mediaHeight(img){return img?(img.naturalHeight||img.height||0):0;}
+function imageReady(img){return mediaWidth(img)>0&&mediaHeight(img)>0;}
 function selectedObject(){return typeof selected==='number'?objects.find(o=>o.id===selected)||null:null;}
 function objectAssetKey(o){return o.type==='badge'?'badge':`${o.type}-${o.style}`;}
 function objectImage(o){return assets[objectAssetKey(o)];}
@@ -73,8 +88,8 @@ function scheduleRender(){if(framePending)return;framePending=true;requestAnimat
 
 function objectDimensions(o){
   const img=objectImage(o);if(!imageReady(img))return{w:1,h:1};
-  const w=baseSize[o.type]*o.scale;const length=o.type==='tie'?o.length:1;
-  return{w,h:w*(img.naturalHeight/img.naturalWidth)*length};
+  const w=baseSize[o.type]*o.scale,length=o.type==='tie'?o.length:1,iw=mediaWidth(img),ih=mediaHeight(img);
+  return{w,h:w*(ih/iw)*length};
 }
 function drawPhoto(target){
   if(!photo)return;
