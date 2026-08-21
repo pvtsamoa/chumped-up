@@ -20,12 +20,13 @@ const E={
 
 const assetSources={
   'beak-closed':'assets/beak-closed.png','beak-open':'assets/beak-open.png',
+  'beak-squawk':'assets/beak-squawk.png','beak-pursed':'assets/beak-pursed.png',
   'tie-straight':'assets/tie-straight.png','tie-flying':'assets/tie-flying.png',
   'feather-orange':'assets/feather-orange.png','feather-green':'assets/feather-green.png',
   badge:'assets/plus1-chump.png'
 };
 const assets={};
-const styleMap={beak:[['closed','CLOSED'],['open','OPEN']],tie:[['straight','STRAIGHT'],['flying','FLYING']],feather:[['orange','ORANGE'],['green','GREEN']],badge:[]};
+const styleMap={beak:[['closed','CLOSED'],['open','OPEN'],['squawk','SQUAWK'],['pursed','PURSED']],tie:[['straight','STRAIGHT'],['flying','FLYING']],feather:[['orange','ORANGE'],['green','GREEN']],badge:[]};
 const baseSize={beak:355,tie:315,feather:235,badge:560};
 const clamp=(n,min,max)=>Math.max(min,Math.min(max,n));
 const angleDelta=(a,b)=>{let d=a-b;while(d>180)d-=360;while(d<-180)d+=360;return d;};
