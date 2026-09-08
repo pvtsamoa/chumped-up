@@ -39,9 +39,10 @@
       <aside class="controls-panel">
         <section class="control-section first">
           <div class="section-title">1 — IMAGE</div>
-          <label class="file-button">ADD IMAGE
+          <label id="fileButton" class="file-button">ADD IMAGE
             <input id="fileInput" type="file" accept="image/png,image/jpeg,image/webp">
           </label>
+          <div id="processingIndicator" class="processing-indicator" hidden>&#x231B; Processing image on your device...</div>
           <div class="row gap-top">
             <button id="selectPhoto" class="secondary" type="button" disabled>SELECT PHOTO</button>
             <button id="lockPhoto" class="secondary" type="button" disabled>LOCK PHOTO</button>
@@ -65,6 +66,7 @@
             <button id="addFeather" class="green" type="button" disabled>+ FEATHER</button>
             <button id="addBadge" class="blue" type="button" disabled>+1 BADGE</button>
           </div>
+          <button id="toggleRing" class="secondary full gap-top" type="button" disabled>CULT DE CHUMP: OFF</button>
           <p class="hint">Add several beaks, ties, or feathers for group photos. One +1 badge per image.</p>
         </section>
 
@@ -188,6 +190,7 @@
           <button id="download" class="download gap-top" type="button" disabled>DOWNLOAD 1080 × 1080</button>
           <button id="startOver" class="secondary full gap-top" type="button" disabled>START OVER</button>
           <p id="outputNote" class="hint">Optimized for an X post or reply.</p>
+          <div id="runtimeWarning" class="runtime-warning" hidden></div>
           <div id="status" class="status" aria-live="polite">Ready.</div>
           <div class="privacy"><span></span>Your image never leaves your device.</div>
         </section>
@@ -196,6 +199,14 @@
 
     <footer><strong>$CHUMP on Robinhood Chain</strong> • cc21b.meme</footer>
   </main>
-  <script src="app.js?v=20260820warp2"></script>
+  <script type="importmap">
+    {
+      "imports": {
+        "onnxruntime-web": "./assets/vendor/onnxruntime-web/ort.bundle.min.mjs",
+        "onnxruntime-web/webgpu": "./assets/vendor/onnxruntime-web/ort.webgpu.bundle.min.mjs"
+      }
+    }
+  </script>
+  <script src="app.js?v=20260907bg1"></script>
 </body>
 </html>

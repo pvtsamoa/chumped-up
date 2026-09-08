@@ -1,0 +1,26 @@
+{
+  "name": "chumped-up",
+  "version": "1.0.0",
+  "description": "Static, browser-only CHUMP image generator for the X community.",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pvtsamoa/chumped-up.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/pvtsamoa/chumped-up/issues"
+  },
+  "homepage": "https://github.com/pvtsamoa/chumped-up#readme",
+  "dependencies": {
+    "@imgly/background-removal": "^1.7.0",
+    "@imgly/background-removal-data": "^1.4.5",
+    "onnxruntime-web": "^1.21.0"
+  }
+}

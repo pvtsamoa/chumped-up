@@ -36,6 +36,8 @@ button,.file-button{border:0;border-radius:9px;min-height:41px;padding:9px 11px;
 button:disabled,input:disabled{opacity:.35;cursor:not-allowed}
 .file-button{display:flex;align-items:center;justify-content:center;width:100%;background:var(--blue);color:white}
 .file-button input{display:none}
+.file-button.disabled{opacity:.45;pointer-events:none}
+.processing-indicator{margin-top:8px;padding:8px 10px;border-radius:8px;border:1px solid #3f5f78;background:#102233;color:#d8e9f8;font-size:11px;font-weight:800;letter-spacing:.02em}
 .row{display:flex;gap:7px}.row>*{flex:1;min-width:0}
 .gap-top{margin-top:7px}.full{width:100%}
 .gold{background:var(--gold);color:#171006}
@@ -78,6 +80,7 @@ input[type=range]{width:100%;accent-color:var(--lime);min-height:30px}
 .nudge{min-height:35px;padding:3px 6px;background:#142437;color:#fff;border:1px solid #35516b;font-size:18px}
 .nudge.center{font-size:10px}
 .status{font-size:12px;line-height:1.4;color:#bed0e3;background:#07111c;border:1px solid #193650;padding:9px 10px;border-radius:8px;margin-top:9px;min-height:36px}
+.runtime-warning{font-size:11px;line-height:1.4;color:#ffe8e8;background:#45191f;border:1px solid #8c2f3a;padding:9px 10px;border-radius:8px;margin-top:8px;font-weight:800}
 .privacy{display:flex;gap:8px;align-items:center;color:#aebfd0;font-size:11px;margin-top:8px}
 .privacy span{width:8px;height:8px;border-radius:50%;background:var(--lime);box-shadow:0 0 9px rgba(202,255,0,.65)}
 footer{text-align:center;color:#8fa2b5;font-size:12px;padding:18px 0 4px}

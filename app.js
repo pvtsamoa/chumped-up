@@ -6,9 +6,9 @@ const canvas=$('editor');
 const ctx=canvas.getContext('2d');
 
 const E={
-  file:$('fileInput'),empty:$('emptyState'),selectPhoto:$('selectPhoto'),lockPhoto:$('lockPhoto'),
+  file:$('fileInput'),fileButton:$('fileButton'),processingIndicator:$('processingIndicator'),empty:$('emptyState'),selectPhoto:$('selectPhoto'),lockPhoto:$('lockPhoto'),
   photoScale:$('photoScale'),photoScaleValue:$('photoScaleValue'),photoScaleMinus:$('photoScaleMinus'),photoScalePlus:$('photoScalePlus'),
-  addBeak:$('addBeak'),addTie:$('addTie'),addFeather:$('addFeather'),addBadge:$('addBadge'),
+  addBeak:$('addBeak'),addTie:$('addTie'),addFeather:$('addFeather'),addBadge:$('addBadge'),toggleRing:$('toggleRing'),
   undo:$('undo'),redo:$('redo'),layerList:$('layerList'),stylePanel:$('stylePanel'),styleButtons:$('styleButtons'),
   lockObject:$('lockObject'),objectScale:$('objectScale'),objectScaleValue:$('objectScaleValue'),objectScaleMinus:$('objectScaleMinus'),objectScalePlus:$('objectScalePlus'),
   lengthPanel:$('lengthPanel'),objectLength:$('objectLength'),objectLengthValue:$('objectLengthValue'),objectLengthMinus:$('objectLengthMinus'),objectLengthPlus:$('objectLengthPlus'),
@@ -18,7 +18,7 @@ const E={
   warpDepth:$('warpDepth'),warpDepthValue:$('warpDepthValue'),warpForward:$('warpForward'),warpBack:$('warpBack'),resetWarp:$('resetWarp'),
   objectFlip:$('objectFlip'),duplicate:$('duplicate'),moveForward:$('moveForward'),moveBack:$('moveBack'),resetObject:$('resetObject'),deleteObject:$('deleteObject'),
   nudgeUp:$('nudgeUp'),nudgeDown:$('nudgeDown'),nudgeLeft:$('nudgeLeft'),nudgeRight:$('nudgeRight'),centerObject:$('centerObject'),
-  previewFinal:$('previewFinal'),download:$('download'),startOver:$('startOver'),status:$('status'),postMode:$('postMode'),pfpMode:$('pfpMode'),stageNote:$('stageNote'),outputNote:$('outputNote')
+  previewFinal:$('previewFinal'),download:$('download'),startOver:$('startOver'),runtimeWarning:$('runtimeWarning'),status:$('status'),postMode:$('postMode'),pfpMode:$('pfpMode'),stageNote:$('stageNote'),outputNote:$('outputNote')
 };
 
 const assetSources={
@@ -30,7 +30,8 @@ const assetSources={
   'tie-flying':'assets/tie-flying.png',
   'feather-orange':'assets/feather-orange.png',
   'feather-green':'assets/feather-green.png',
-  badge:'assets/plus1-chump.png'
+  badge:'assets/plus1-chump.png',
+  ring:'assets/chump-ring-emblem.png'
 };
 const assets={};
 const styleMap={
@@ -48,6 +49,17 @@ const freshWarp=()=>({corners:[
   {x:0,y:0,z:0},
   {x:0,y:0,z:0}
 ]});
+const BG_REMOVAL_PUBLIC_PATH=new URL('./assets/vendor/background-removal-data/',window.location.href).href;
+const BG_COLOR='#00C805';
+const PFP_SAFE_RADIUS=500;
+const PFP_RING_OFFSET_X=-18;
+const VENDOR_PREFLIGHT_FILES=[
+  'assets/vendor/background-removal/index.mjs',
+  'assets/vendor/background-removal/resources.json',
+  'assets/vendor/background-removal-data/resources.json',
+  'assets/vendor/onnxruntime-web/ort.bundle.min.mjs',
+  'assets/vendor/onnxruntime-web/ort.webgpu.bundle.min.mjs'
+];
 
 for(const [key,src] of Object.entries(assetSources)){
   const img=new Image();
@@ -63,6 +75,7 @@ let outputMode='post';
 let previewClean=false;
 let photoState={x:540,y:540,scale:1,locked:false};
 let objects=[];
+let ringEnabled=false;
 let selected='photo';
 let nextId=1;
 let history=[];
@@ -73,6 +86,9 @@ let dragSession=null;
 let gesture=null;
 let warpModeActive=false;
 let warpTarget='whole';
+let uploadBusy=false;
+let cachedRemoveBackground=null;
+let runtimePreflightPassed=true;
 const pointers=new Map();
 
 function status(text){E.status.textContent=text;}
@@ -82,6 +98,133 @@ function objectAssetKey(o){return o.type==='badge'?'badge':`${o.type}-${o.style}
 function objectImage(o){return assets[objectAssetKey(o)];}
 function ensureWarp(o){if(o&&o.type==='beak'&&(!o.warp||!Array.isArray(o.warp.corners)||o.warp.corners.length!==4))o.warp=freshWarp();return o?.warp;}
 function snapshot(){return JSON.stringify({photoState,objects,selected,nextId});}
+
+function loadImageFromUrl(url){
+  return new Promise((resolve,reject)=>{
+    const img=new Image();
+    img.decoding='async';
+    img.onload=()=>resolve(img);
+    img.onerror=()=>reject(new Error('Could not open that image.'));
+    img.src=url;
+  });
+}
+function canvasToBlob(canvas,type='image/png',quality){
+  return new Promise((resolve,reject)=>{
+    canvas.toBlob(blob=>blob?resolve(blob):reject(new Error('Could not create processed image.')),type,quality);
+  });
+}
+async function getRemoveBackground(){
+  if(cachedRemoveBackground)return cachedRemoveBackground;
+  const mod=await import('./assets/vendor/background-removal/index.mjs');
+  cachedRemoveBackground=mod.default||mod.removeBackground;
+  return cachedRemoveBackground;
+}
+async function buildNeonComposite(file){
+  const sourceUrl=URL.createObjectURL(file);
+  let sourceImg=null;
+  let cutoutUrl=null;
+  let composedUrl=null;
+  try{
+    sourceImg=await loadImageFromUrl(sourceUrl);
+    const removeBackground=await getRemoveBackground();
+    const cutoutBlob=await removeBackground(file,{
+      publicPath:BG_REMOVAL_PUBLIC_PATH,
+      device:'cpu',
+      progress:(key,current,total)=>{
+        if(total>0){
+          const pct=Math.round((current/total)*100);
+          status(`Processing image on your device... ${pct}%`);
+        }
+      }
+    });
+    cutoutUrl=URL.createObjectURL(cutoutBlob);
+    const cutoutImg=await loadImageFromUrl(cutoutUrl);
+
+    const out=document.createElement('canvas');
+    out.width=sourceImg.naturalWidth;
+    out.height=sourceImg.naturalHeight;
+    const outCtx=out.getContext('2d');
+    outCtx.fillStyle=BG_COLOR;
+    outCtx.fillRect(0,0,out.width,out.height);
+    outCtx.drawImage(cutoutImg,0,0,out.width,out.height);
+
+    const composedBlob=await canvasToBlob(out,'image/png');
+    composedUrl=URL.createObjectURL(composedBlob);
+    const finalImg=await loadImageFromUrl(composedUrl);
+    const finalUrl=composedUrl;
+    composedUrl=null;
+    return{image:finalImg,url:finalUrl};
+  }finally{
+    URL.revokeObjectURL(sourceUrl);
+    if(cutoutUrl)URL.revokeObjectURL(cutoutUrl);
+    if(composedUrl)URL.revokeObjectURL(composedUrl);
+  }
+}
+function setUploadBusy(isBusy){
+  uploadBusy=isBusy;
+  E.startOver.disabled=isBusy||!photo;
+  E.file.disabled=isBusy;
+  E.fileButton.classList.toggle('disabled',isBusy);
+  E.processingIndicator.hidden=!isBusy;
+}
+function warnRuntime(message){
+  E.runtimeWarning.hidden=false;
+  E.runtimeWarning.textContent=message;
+}
+async function checkStaticAsset(path){
+  try{
+    const head=await fetch(path,{method:'HEAD',cache:'no-store'});
+    if(head.ok)return true;
+    if(head.status!==405&&head.status!==501)return false;
+  }catch{}
+  try{
+    const get=await fetch(path,{method:'GET',cache:'no-store',headers:{Range:'bytes=0-0'}});
+    return get.ok||get.status===206;
+  }catch{
+    return false;
+  }
+}
+async function preflightVendorAssets(){
+  runtimePreflightPassed=true;
+  if(location.protocol==='file:'){
+    runtimePreflightPassed=false;
+    warnRuntime('Runtime preflight skipped on file:// . Serve this app over HTTP(S) so background-removal assets can be verified and loaded.');
+    return;
+  }
+
+  const missing=[];
+  await Promise.all(VENDOR_PREFLIGHT_FILES.map(async path=>{
+    if(!(await checkStaticAsset(path)))missing.push(path);
+  }));
+
+  if(!missing.length){
+    try{
+      const res=await fetch(`${BG_REMOVAL_PUBLIC_PATH}resources.json`,{cache:'no-store'});
+      if(!res.ok)throw new Error('resources.json unavailable');
+      const manifest=await res.json();
+      const chunks=new Set();
+      for(const value of Object.values(manifest||{})){
+        if(!value||!Array.isArray(value.chunks))continue;
+        value.chunks.forEach(chunk=>{
+          if(chunk&&chunk.hash)chunks.add(`${BG_REMOVAL_PUBLIC_PATH}${chunk.hash}`);
+        });
+      }
+      await Promise.all([...chunks].map(async path=>{
+        if(!(await checkStaticAsset(path)))missing.push(path);
+      }));
+    }catch{
+      missing.push(`${BG_REMOVAL_PUBLIC_PATH}resources.json`);
+    }
+  }
+
+  if(missing.length){
+    runtimePreflightPassed=false;
+    const preview=missing.slice(0,6).join(', ');
+    const extra=missing.length>6?` +${missing.length-6} more.`:'.';
+    warnRuntime(`Runtime asset preflight failed. Missing files: ${preview}${extra} Background removal is disabled until these files are present in assets/vendor/.`);
+    status('Runtime preflight failed. See warning for missing files.');
+  }
+}
 
 function pushHistory(){
   if(!photo)return;
@@ -325,21 +468,31 @@ function drawPfpGuide(target){
   target.fillStyle='rgba(0,0,0,.48)';
   target.beginPath();
   target.rect(0,0,1080,1080);
-  target.arc(540,540,528,0,Math.PI*2,true);
+  target.arc(540,540,PFP_SAFE_RADIUS,0,Math.PI*2,true);
   target.fill('evenodd');
   target.strokeStyle='rgba(202,255,0,.95)';
   target.lineWidth=4;
   target.beginPath();
-  target.arc(540,540,528,0,Math.PI*2);
+  target.arc(540,540,PFP_SAFE_RADIUS,0,Math.PI*2);
   target.stroke();
   target.restore();
 }
+function drawRingOverlay(target){
+  if(!ringEnabled||!imageReady(assets.ring))return;
+  if(outputMode==='pfp'){
+    const d=PFP_SAFE_RADIUS*2;
+    target.drawImage(assets.ring,540-PFP_SAFE_RADIUS+PFP_RING_OFFSET_X,540-PFP_SAFE_RADIUS,d,d);
+    return;
+  }
+  target.drawImage(assets.ring,0,0,1080,1080);
+}
 function drawScene(target,{guides=true}={}){
   target.clearRect(0,0,1080,1080);
-  target.fillStyle='#05070b';
+  target.fillStyle=BG_COLOR;
   target.fillRect(0,0,1080,1080);
   drawPhoto(target);
   for(const o of objects)drawObject(target,o);
+  drawRingOverlay(target);
   if(guides&&!previewClean){
     const o=selectedObject();
     if(o)drawSelectionGuide(target,o);
@@ -373,6 +526,15 @@ function rebuildLayers(){
     b.addEventListener('click',()=>selectLayer(o.id));
     E.layerList.appendChild(b);
   });
+
+  if(ringEnabled){
+    const frame=document.createElement('button');
+    frame.type='button';
+    frame.className='layer locked';
+    frame.disabled=true;
+    frame.innerHTML='<span>FRAME. ROOSTER-C EMBLEM</span><small>FIXED OVERLAY</small>';
+    E.layerList.appendChild(frame);
+  }
 }
 function selectLayer(v){
   selected=v;
@@ -448,6 +610,9 @@ function syncControls(){
   E.lockPhoto.textContent=photoState.locked?'UNLOCK PHOTO':'LOCK PHOTO';
   E.selectPhoto.disabled=!hasPhoto;
   E.lockPhoto.disabled=!hasPhoto;
+  E.toggleRing.disabled=!hasPhoto||uploadBusy;
+  E.toggleRing.textContent=`CULT DE CHUMP: ${ringEnabled?'ON':'OFF'}`;
+  E.toggleRing.classList.toggle('active',ringEnabled);
   setDisabled([E.photoScale,E.photoScaleMinus,E.photoScalePlus],photoLocked);
   E.previewFinal.disabled=!hasPhoto;
   E.previewFinal.textContent=previewClean?'BACK TO EDIT':'PREVIEW FINAL';
@@ -475,7 +640,8 @@ function syncControls(){
   if(!o){
     E.objectScaleValue.textContent=E.objectRotateValue.textContent=E.objectYawValue.textContent=E.objectPitchValue.textContent='—';
     syncWarpControls(null,true);
-    status(selected==='photo'?(photoState.locked?'Photo locked.':'Photo selected. Drag inside the image to reposition.'):'Ready.');
+    if(!hasPhoto)status('Ready.');
+    else status(selected==='photo'?(photoState.locked?'Photo locked.':'Photo selected. Drag inside the image to reposition.'):'Ready.');
     return;
   }
 
@@ -545,6 +711,13 @@ function updateAddButtons(){
   E.addTie.disabled=!hasPhoto;
   E.addFeather.disabled=!hasPhoto;
   E.addBadge.disabled=!hasPhoto||objects.some(o=>o.type==='badge');
+}
+function toggleRing(){
+  if(!photo||uploadBusy)return;
+  ringEnabled=!ringEnabled;
+  scheduleRender();
+  rebuildLayers();
+  syncControls();
 }
 function deleteSelected(){
   const o=selectedObject();
@@ -809,7 +982,15 @@ canvas.addEventListener('pointerup',endPointer);
 canvas.addEventListener('pointercancel',endPointer);
 canvas.addEventListener('lostpointercapture',e=>{if(pointers.has(e.pointerId))endPointer(e);});
 
-E.file.addEventListener('change',()=>{
+E.file.addEventListener('change',async()=>{
+  if(uploadBusy){
+    status('Background removal is still processing. Please wait.');
+    return;
+  }
+  if(!runtimePreflightPassed){
+    status('Missing runtime assets. Background removal is unavailable until assets/vendor/ is fixed.');
+    return;
+  }
   const f=E.file.files&&E.file.files[0];
   if(!f)return;
   if(!/^image\/(png|jpeg|webp)$/.test(f.type)){
@@ -820,13 +1001,16 @@ E.file.addEventListener('change',()=>{
     status('Choose an image under 30 MB.');
     return;
   }
-  if(photoUrl)URL.revokeObjectURL(photoUrl);
-  photoUrl=URL.createObjectURL(f);
-  const img=new Image();
-  img.onload=()=>{
-    photo=img;
+  setUploadBusy(true);
+  status('Processing image on your device...');
+  try{
+    const processed=await buildNeonComposite(f);
+    if(photoUrl)URL.revokeObjectURL(photoUrl);
+    photoUrl=processed.url;
+    photo=processed.image;
     photoState={x:540,y:540,scale:1,locked:false};
     objects=[];
+    ringEnabled=false;
     selected='photo';
     nextId=1;
     history=[];
@@ -841,10 +1025,15 @@ E.file.addEventListener('change',()=>{
     updateAddButtons();
     scheduleRender();
     pushHistory();
-    status('Image loaded. Position the photo, then start adding CHUMP parts.');
-  };
-  img.onerror=()=>status('Could not open that image.');
-  img.src=photoUrl;
+    status('Image loaded. Background removed and composited on neon green.');
+  }catch(err){
+    console.error(err);
+    status('Could not process that image. Try another file.');
+  }finally{
+    setUploadBusy(false);
+    E.file.value='';
+    syncControls();
+  }
 });
 E.selectPhoto.addEventListener('click',()=>selectLayer('photo'));
 E.lockPhoto.addEventListener('click',()=>{
@@ -866,6 +1055,7 @@ E.addBeak.addEventListener('click',()=>addObject('beak'));
 E.addTie.addEventListener('click',()=>addObject('tie'));
 E.addFeather.addEventListener('click',()=>addObject('feather'));
 E.addBadge.addEventListener('click',()=>addObject('badge'));
+E.toggleRing.addEventListener('click',toggleRing);
 
 function bindRange(el,key,valueEl,converter,formatter){
   el.addEventListener('input',()=>{
@@ -1063,10 +1253,11 @@ E.download.addEventListener('click',()=>{
   },'image/png');
 });
 E.startOver.addEventListener('click',()=>{
+  if(uploadBusy)return;
   if(photoUrl)URL.revokeObjectURL(photoUrl);
   photoUrl=null;photo=null;
   photoState={x:540,y:540,scale:1,locked:false};
-  objects=[];selected='photo';nextId=1;
+  objects=[];ringEnabled=false;selected='photo';nextId=1;
   history=[];future=[];previewClean=false;warpModeActive=false;
   pointers.clear();gesture=null;dragSession=null;
   E.file.value='';
@@ -1086,4 +1277,8 @@ rebuildLayers();
 updateAddButtons();
 updateHistoryButtons();
 render();
+preflightVendorAssets().catch(()=>{
+  warnRuntime('Runtime asset preflight failed unexpectedly. Check assets/vendor deployment files.');
+  status('Runtime preflight failed unexpectedly.');
+});
 })();
