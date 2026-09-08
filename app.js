@@ -53,6 +53,8 @@ const BG_REMOVAL_PUBLIC_PATH=new URL('./assets/vendor/background-removal-data/',
 const BG_COLOR='#00C805';
 const PFP_SAFE_RADIUS=500;
 const PFP_RING_OFFSET_X=-18;
+const EXPORT_CIRCLE_RADIUS=528;
+const EXPORT_CIRCLE_MARGIN=6;
 const VENDOR_PREFLIGHT_FILES=[
   'assets/vendor/background-removal/index.mjs',
   'assets/vendor/background-removal/resources.json',
@@ -1231,6 +1233,16 @@ function exportCanvas(size){
   drawScene(c,{guides:false});
   previewClean=wasPreview;warpModeActive=wasWarp;
   c.restore();
+
+  const maskRadius=(EXPORT_CIRCLE_RADIUS+EXPORT_CIRCLE_MARGIN)*(size/1080);
+  c.save();
+  c.globalCompositeOperation='destination-in';
+  c.fillStyle='#fff';
+  c.beginPath();
+  c.arc(size/2,size/2,maskRadius,0,Math.PI*2);
+  c.fill();
+  c.restore();
+
   return out;
 }
 E.download.addEventListener('click',()=>{
