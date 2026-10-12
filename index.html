@@ -47,6 +47,8 @@
             <button id="selectPhoto" class="secondary" type="button" disabled>SELECT PHOTO</button>
             <button id="lockPhoto" class="secondary" type="button" disabled>LOCK PHOTO</button>
           </div>
+          <button id="removeBg" class="green full gap-top" type="button" disabled>REMOVE BACKGROUND</button>
+          <div id="bgProgress" class="processing-indicator bg-progress" role="status" aria-live="polite" hidden><span class="spinner" aria-hidden="true"></span><span id="bgProgressText">Removing background...</span></div>
           <div class="adjust-block">
             <label for="photoScale">Photo size <span id="photoScaleValue" class="value">100%</span></label>
             <div class="range-step-row">
@@ -207,6 +209,6 @@
       }
     }
   </script>
-  <script src="app.js?v=20260907bg1"></script>
+  <script src="app.js?v=20261012bgopt1"></script>
 </body>
 </html>
