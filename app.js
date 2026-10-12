@@ -18,7 +18,7 @@ const E={
   warpDepth:$('warpDepth'),warpDepthValue:$('warpDepthValue'),warpForward:$('warpForward'),warpBack:$('warpBack'),resetWarp:$('resetWarp'),
   objectFlip:$('objectFlip'),duplicate:$('duplicate'),moveForward:$('moveForward'),moveBack:$('moveBack'),resetObject:$('resetObject'),deleteObject:$('deleteObject'),
   nudgeUp:$('nudgeUp'),nudgeDown:$('nudgeDown'),nudgeLeft:$('nudgeLeft'),nudgeRight:$('nudgeRight'),centerObject:$('centerObject'),
-  previewFinal:$('previewFinal'),download:$('download'),startOver:$('startOver'),runtimeWarning:$('runtimeWarning'),status:$('status'),postMode:$('postMode'),pfpMode:$('pfpMode'),stageNote:$('stageNote'),outputNote:$('outputNote')
+  removeBg:$('removeBg'),bgProgress:$('bgProgress'),bgProgressText:$('bgProgressText'),previewFinal:$('previewFinal'),download:$('download'),startOver:$('startOver'),runtimeWarning:$('runtimeWarning'),status:$('status'),postMode:$('postMode'),pfpMode:$('pfpMode'),stageNote:$('stageNote'),outputNote:$('outputNote')
 };
 
 const assetSources={
@@ -51,6 +51,10 @@ const freshWarp=()=>({corners:[
 ]});
 const BG_REMOVAL_PUBLIC_PATH=new URL('./assets/vendor/background-removal-data/',window.location.href).href;
 const BG_COLOR='#00C805';
+const EMPTY_BG_TOP='#101c2b';
+const EMPTY_BG_BOTTOM='#05070b';
+const BG_REMOVAL_MODEL='isnet_quint8'; // 'small' in @imgly/background-removal 1.7.0 (see resources.json)
+const BG_REMOVAL_MAX_SIDE=1280;
 const PFP_SAFE_RADIUS=500;
 const PFP_RING_OFFSET_X=-18;
 const EXPORT_CIRCLE_RADIUS=528;
@@ -61,6 +65,14 @@ const VENDOR_PREFLIGHT_FILES=[
   'assets/vendor/background-removal-data/resources.json',
   'assets/vendor/onnxruntime-web/ort.bundle.min.mjs',
   'assets/vendor/onnxruntime-web/ort.webgpu.bundle.min.mjs'
+];
+// Only the manifest entries this app actually loads (model + wasm runtimes).
+const BG_REMOVAL_MANIFEST_KEYS=[
+  `/models/${BG_REMOVAL_MODEL}`,
+  '/onnxruntime-web/ort-wasm-simd-threaded.wasm',
+  '/onnxruntime-web/ort-wasm-simd-threaded.mjs',
+  '/onnxruntime-web/ort-wasm-simd-threaded.jsep.wasm',
+  '/onnxruntime-web/ort-wasm-simd-threaded.jsep.mjs'
 ];
 
 for(const [key,src] of Object.entries(assetSources)){
@@ -73,6 +85,10 @@ for(const [key,src] of Object.entries(assetSources)){
 
 let photo=null;
 let photoUrl=null;
+let photoFile=null;
+let photoVersions=[]; // [{image,url}] index 0 = original upload
+let photoVersion=0;
+let bgBusy=false;
 let outputMode='post';
 let previewClean=false;
 let photoState={x:540,y:540,scale:1,locked:false};
@@ -99,7 +115,7 @@ function selectedObject(){return typeof selected==='number'?objects.find(o=>o.id
 function objectAssetKey(o){return o.type==='badge'?'badge':`${o.type}-${o.style}`;}
 function objectImage(o){return assets[objectAssetKey(o)];}
 function ensureWarp(o){if(o&&o.type==='beak'&&(!o.warp||!Array.isArray(o.warp.corners)||o.warp.corners.length!==4))o.warp=freshWarp();return o?.warp;}
-function snapshot(){return JSON.stringify({photoState,objects,selected,nextId});}
+function snapshot(){return JSON.stringify({photoState,objects,selected,nextId,photoVersion});}
 
 function loadImageFromUrl(url){
   return new Promise((resolve,reject)=>{
@@ -121,30 +137,46 @@ async function getRemoveBackground(){
   cachedRemoveBackground=mod.default||mod.removeBackground;
   return cachedRemoveBackground;
 }
-async function buildNeonComposite(file){
-  const sourceUrl=URL.createObjectURL(file);
-  let sourceImg=null;
+async function downscaleForRemoval(img){
+  const w=img.naturalWidth,h=img.naturalHeight;
+  const k=Math.min(1,BG_REMOVAL_MAX_SIDE/Math.max(w,h));
+  const c=document.createElement('canvas');
+  c.width=Math.max(1,Math.round(w*k));
+  c.height=Math.max(1,Math.round(h*k));
+  c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+  return canvasToBlob(c,'image/png');
+}
+async function runRemoval(removeBackground,input,device,onProgress){
+  const base={publicPath:BG_REMOVAL_PUBLIC_PATH,device,progress:onProgress};
+  try{
+    return await removeBackground(input,{...base,model:BG_REMOVAL_MODEL});
+  }catch(err){
+    // Unknown model name would fail config validation; retry with library default.
+    if(/model|enum|invalid/i.test(String(err&&err.message))){
+      console.warn('Model option rejected, retrying with default model.',err);
+      return removeBackground(input,base);
+    }
+    throw err;
+  }
+}
+async function buildNeonComposite(sourceImg,onProgress){
   let cutoutUrl=null;
   let composedUrl=null;
   try{
-    sourceImg=await loadImageFromUrl(sourceUrl);
     const removeBackground=await getRemoveBackground();
-    const cutoutBlob=await removeBackground(file,{
-      publicPath:BG_REMOVAL_PUBLIC_PATH,
-      device:'cpu',
-      progress:(key,current,total)=>{
-        if(total>0){
-          const pct=Math.round((current/total)*100);
-          status(`Processing image on your device... ${pct}%`);
-        }
-      }
-    });
+    const input=await downscaleForRemoval(sourceImg);
+    let cutoutBlob;
+    if(navigator.gpu){
+      try{cutoutBlob=await runRemoval(removeBackground,input,'gpu',onProgress);}
+      catch(err){console.warn('GPU background removal failed, falling back to CPU.',err);}
+    }
+    if(!cutoutBlob)cutoutBlob=await runRemoval(removeBackground,input,'cpu',onProgress);
     cutoutUrl=URL.createObjectURL(cutoutBlob);
     const cutoutImg=await loadImageFromUrl(cutoutUrl);
 
     const out=document.createElement('canvas');
-    out.width=sourceImg.naturalWidth;
-    out.height=sourceImg.naturalHeight;
+    out.width=cutoutImg.naturalWidth;
+    out.height=cutoutImg.naturalHeight;
     const outCtx=out.getContext('2d');
     outCtx.fillStyle=BG_COLOR;
     outCtx.fillRect(0,0,out.width,out.height);
@@ -157,9 +189,53 @@ async function buildNeonComposite(file){
     composedUrl=null;
     return{image:finalImg,url:finalUrl};
   }finally{
-    URL.revokeObjectURL(sourceUrl);
     if(cutoutUrl)URL.revokeObjectURL(cutoutUrl);
     if(composedUrl)URL.revokeObjectURL(composedUrl);
+  }
+}
+function releasePhotoVersions(){
+  for(const v of photoVersions)if(v.url)URL.revokeObjectURL(v.url);
+  photoVersions=[];photoVersion=0;photoUrl=null;
+}
+function setBgBusy(isBusy){
+  bgBusy=isBusy;
+  E.removeBg.disabled=isBusy||!photo;
+  E.download.disabled=isBusy||!photo;
+  E.bgProgress.hidden=!isBusy;
+  if(!isBusy)E.bgProgressText.textContent='Removing background...';
+}
+async function removeCurrentBackground(){
+  if(!photo||bgBusy)return;
+  if(!runtimePreflightPassed){
+    status('Background removal is unavailable: its files are missing from this site (assets/vendor/). Your image is still fully editable.');
+    return;
+  }
+  const source=photoVersions[0]&&photoVersions[0].image;
+  if(!source)return;
+  setBgBusy(true);
+  status('Removing background on your device... this can take a little while.');
+  const t0=performance.now();
+  try{
+    const processed=await buildNeonComposite(source,(key,current,total)=>{
+      if(total>0)E.bgProgressText.textContent=`Removing background... ${Math.round((current/total)*100)}%`;
+    });
+    if(!photo){URL.revokeObjectURL(processed.url);return;} // user started over meanwhile
+    photoVersions.push(processed);
+    photoVersion=photoVersions.length-1;
+    photo=processed.image;
+    photoUrl=processed.url;
+    scheduleRender();
+    pushHistory();
+    const secs=((performance.now()-t0)/1000).toFixed(1);
+    window.__lastBgRemovalMs=performance.now()-t0;
+    status(`Background removed in ${secs}s. Use Undo to bring the original back.`);
+  }catch(err){
+    console.error(err);
+    status(/fetch|404|load|network/i.test(String(err&&err.message))
+      ?'Background removal files could not be loaded. Your image is still fully editable.'
+      :'Could not remove the background from this image. Your image is still fully editable.');
+  }finally{
+    setBgBusy(false);
   }
 }
 function setUploadBusy(isBusy){
@@ -205,8 +281,9 @@ async function preflightVendorAssets(){
       if(!res.ok)throw new Error('resources.json unavailable');
       const manifest=await res.json();
       const chunks=new Set();
-      for(const value of Object.values(manifest||{})){
-        if(!value||!Array.isArray(value.chunks))continue;
+      for(const key of BG_REMOVAL_MANIFEST_KEYS){
+        const value=manifest&&manifest[key];
+        if(!value||!Array.isArray(value.chunks)){missing.push(`${BG_REMOVAL_PUBLIC_PATH}resources.json#${key}`);continue;}
         value.chunks.forEach(chunk=>{
           if(chunk&&chunk.hash)chunks.add(`${BG_REMOVAL_PUBLIC_PATH}${chunk.hash}`);
         });
@@ -223,7 +300,7 @@ async function preflightVendorAssets(){
     runtimePreflightPassed=false;
     const preview=missing.slice(0,6).join(', ');
     const extra=missing.length>6?` +${missing.length-6} more.`:'.';
-    warnRuntime(`Runtime asset preflight failed. Missing files: ${preview}${extra} Background removal is disabled until these files are present in assets/vendor/.`);
+    warnRuntime(`Runtime asset preflight failed. Missing files: ${preview}${extra} Uploading and editing still work; only REMOVE BACKGROUND is disabled until these files are present in assets/vendor/.`);
     status('Runtime preflight failed. See warning for missing files.');
   }
 }
@@ -242,6 +319,10 @@ function restoreSnapshot(s){
   objects=v.objects;
   selected=v.selected;
   nextId=v.nextId;
+  if(typeof v.photoVersion==='number'&&photoVersions[v.photoVersion]){
+    photoVersion=v.photoVersion;
+    photo=photoVersions[photoVersion].image;
+  }
   objects.forEach(ensureWarp);
   warpModeActive=false;
   syncControls();
@@ -490,7 +571,14 @@ function drawRingOverlay(target){
 }
 function drawScene(target,{guides=true}={}){
   target.clearRect(0,0,1080,1080);
-  target.fillStyle=BG_COLOR;
+  if(photo){
+    target.fillStyle=BG_COLOR;
+  }else{
+    const g=target.createLinearGradient(0,0,0,1080);
+    g.addColorStop(0,EMPTY_BG_TOP);
+    g.addColorStop(1,EMPTY_BG_BOTTOM);
+    target.fillStyle=g;
+  }
   target.fillRect(0,0,1080,1080);
   drawPhoto(target);
   for(const o of objects)drawObject(target,o);
@@ -612,6 +700,8 @@ function syncControls(){
   E.lockPhoto.textContent=photoState.locked?'UNLOCK PHOTO':'LOCK PHOTO';
   E.selectPhoto.disabled=!hasPhoto;
   E.lockPhoto.disabled=!hasPhoto;
+  E.removeBg.disabled=!hasPhoto||bgBusy||photoVersion>0;
+  E.removeBg.textContent=photoVersion>0?'BACKGROUND REMOVED':'REMOVE BACKGROUND';
   E.toggleRing.disabled=!hasPhoto||uploadBusy;
   E.toggleRing.textContent=`CULT DE CHUMP: ${ringEnabled?'ON':'OFF'}`;
   E.toggleRing.classList.toggle('active',ringEnabled);
@@ -692,8 +782,7 @@ function addObject(type){
   const count=objects.filter(o=>o.type===type).length;
   const o={
     id:nextId++,type,style:defaults[type],
-    x:540+((count%5)-2)*34,
-    y:type==='tie'?520:type==='badge'?805:type==='feather'?300:445,
+    ...staggeredPosition(type,count),
     scale:1,length:1,rotation:0,yaw:0,pitch:0,flip:false,locked:false
   };
   if(type==='beak')o.warp=freshWarp();
@@ -706,6 +795,16 @@ function addObject(type){
   scheduleRender();
   pushHistory();
   updateAddButtons();
+}
+function staggeredPosition(type,count){
+  // Each new object of the same type is offset diagonally so it never lands exactly on top of the last one.
+  const baseY=type==='tie'?520:type==='badge'?805:type==='feather'?300:445;
+  const step=70,cols=6,rows=4;
+  const col=count%cols,row=Math.floor(count/cols)%rows;
+  let x=540+(col-Math.floor(cols/2))*step+row*24;
+  let y=baseY+col*36+row*step;
+  const wrap=(v,min,max)=>min+(((v-min)%(max-min))+(max-min))%(max-min);
+  return{x:wrap(x,140,940),y:wrap(y,140,940)};
 }
 function updateAddButtons(){
   const hasPhoto=!!photo;
@@ -985,12 +1084,9 @@ canvas.addEventListener('pointercancel',endPointer);
 canvas.addEventListener('lostpointercapture',e=>{if(pointers.has(e.pointerId))endPointer(e);});
 
 E.file.addEventListener('change',async()=>{
-  if(uploadBusy){
-    status('Background removal is still processing. Please wait.');
-    return;
-  }
-  if(!runtimePreflightPassed){
-    status('Missing runtime assets. Background removal is unavailable until assets/vendor/ is fixed.');
+  if(bgBusy){
+    status('Background removal is still running. Please wait a moment.');
+    E.file.value='';
     return;
   }
   const f=E.file.files&&E.file.files[0];
@@ -1003,13 +1099,15 @@ E.file.addEventListener('change',async()=>{
     status('Choose an image under 30 MB.');
     return;
   }
-  setUploadBusy(true);
-  status('Processing image on your device...');
+  const url=URL.createObjectURL(f);
   try{
-    const processed=await buildNeonComposite(f);
-    if(photoUrl)URL.revokeObjectURL(photoUrl);
-    photoUrl=processed.url;
-    photo=processed.image;
+    const img=await loadImageFromUrl(url);
+    releasePhotoVersions();
+    photoFile=f;
+    photoVersions=[{image:img,url}];
+    photoVersion=0;
+    photoUrl=url;
+    photo=img;
     photoState={x:540,y:540,scale:1,locked:false};
     objects=[];
     ringEnabled=false;
@@ -1027,16 +1125,17 @@ E.file.addEventListener('change',async()=>{
     updateAddButtons();
     scheduleRender();
     pushHistory();
-    status('Image loaded. Background removed and composited on neon green.');
+    status('Image loaded. Tap REMOVE BACKGROUND for a neon-green backdrop (optional).');
   }catch(err){
+    URL.revokeObjectURL(url);
     console.error(err);
-    status('Could not process that image. Try another file.');
+    status('Could not open that image. Try another file.');
   }finally{
-    setUploadBusy(false);
     E.file.value='';
     syncControls();
   }
 });
+E.removeBg.addEventListener('click',removeCurrentBackground);
 E.selectPhoto.addEventListener('click',()=>selectLayer('photo'));
 E.lockPhoto.addEventListener('click',()=>{
   if(!photo)return;
@@ -1265,9 +1364,9 @@ E.download.addEventListener('click',()=>{
   },'image/png');
 });
 E.startOver.addEventListener('click',()=>{
-  if(uploadBusy)return;
-  if(photoUrl)URL.revokeObjectURL(photoUrl);
-  photoUrl=null;photo=null;
+  if(bgBusy)return;
+  releasePhotoVersions();
+  photo=null;photoFile=null;
   photoState={x:540,y:540,scale:1,locked:false};
   objects=[];ringEnabled=false;selected='photo';nextId=1;
   history=[];future=[];previewClean=false;warpModeActive=false;
