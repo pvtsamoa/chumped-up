@@ -22,16 +22,16 @@ const E={
 };
 
 const assetSources={
-  'beak-closed':'assets/beak-closed.png?v=20260820warp2',
-  'beak-open':'assets/beak-open.png?v=20260820warp2',
-  'beak-squawk':'assets/beak-squawk.png?v=20260820warp2',
-  'beak-pursed':'assets/beak-pursed.png?v=20260820warp2',
-  'tie-straight':'assets/tie-straight.png',
-  'tie-flying':'assets/tie-flying.png',
-  'feather-orange':'assets/feather-orange.png',
-  'feather-green':'assets/feather-green.png',
-  badge:'assets/plus1-chump.png',
-  ring:'assets/chump-ring-emblem.png'
+  'beak-closed':'assets/beak-closed.webp?v=20261015webp1',
+  'beak-open':'assets/beak-open.webp?v=20261015webp1',
+  'beak-squawk':'assets/beak-squawk.webp?v=20261015webp1',
+  'beak-pursed':'assets/beak-pursed.webp?v=20261015webp1',
+  'tie-straight':'assets/tie-straight.webp',
+  'tie-flying':'assets/tie-flying.webp',
+  'feather-orange':'assets/feather-orange.webp',
+  'feather-green':'assets/feather-green.webp',
+  badge:'assets/plus1-chump.webp',
+  ring:'assets/chump-ring-emblem.webp'
 };
 const assets={};
 const styleMap={
@@ -79,6 +79,12 @@ for(const [key,src] of Object.entries(assetSources)){
   const img=new Image();
   img.decoding='async';
   img.onload=scheduleRender;
+  // WebP is supported by every current browser; if one ever fails to load, try the PNG original of the same name once.
+  img.onerror=()=>{
+    if(img.dataset.pngFallback||!/\.webp(\?|$)/.test(src))return;
+    img.dataset.pngFallback='1';
+    img.src=src.replace(/\.webp/,'.png');
+  };
   img.src=src;
   assets[key]=img;
 }
