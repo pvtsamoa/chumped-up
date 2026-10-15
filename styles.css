@@ -85,6 +85,7 @@ input[type=range]{width:100%;accent-color:var(--lime);min-height:30px}
 .privacy span{width:8px;height:8px;border-radius:50%;background:var(--lime);box-shadow:0 0 9px rgba(202,255,0,.65)}
 footer{text-align:center;color:#8fa2b5;font-size:12px;padding:18px 0 4px}
 footer strong{color:var(--lime)}
+footer .credit{max-width:560px;margin:8px auto 0;padding:0 14px;font-size:11px;line-height:1.5;color:#6f8396}
 
 .warp-panel{margin-top:12px;padding:10px;border:1px solid #36516c;border-radius:11px;background:#0a1623}
 .warp-heading{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center}

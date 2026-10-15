@@ -52,14 +52,14 @@ No build step and no backend are required. Deploy the repository root to any sta
 - `app.js`
 - `assets/`
   - `chump-banner.jpg`
-   - `chump-ring-emblem.png`
-  - `beak-closed.png`
-  - `beak-open.png`
-  - `tie-straight.png`
-  - `tie-flying.png`
-  - `feather-orange.png`
-  - `feather-green.png`
-  - `plus1-chump.png`
+   - `chump-ring-emblem.webp`
+  - `beak-closed.webp`
+  - `beak-open.webp`
+  - `tie-straight.webp`
+  - `tie-flying.webp`
+  - `feather-orange.webp`
+  - `feather-green.webp`
+  - `plus1-chump.webp`
    - `vendor/`
       - `background-removal/`
       - `background-removal-data/`
